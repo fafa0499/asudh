@@ -1,0 +1,6 @@
+{
+  "name": "Echoes of Cinder: Monochrome Roguelite",
+  "description": "An isometric 2.5D action roguelite demo inspired by Cinderia and Deemo, featuring real-time combat, dodge mechanics, skills, room clearing, and synergistic build upgrades in a poetic monochrome world.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
