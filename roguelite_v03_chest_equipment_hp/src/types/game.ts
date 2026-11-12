@@ -337,6 +337,8 @@ export interface RoomInfo {
   totalEnemies: number;
   enemiesRemaining: number;
   isCleared: boolean;
+  waveIndex?: number;
+  totalWaves?: number;
   width: number;
   height: number;
   pillars?: Pillar[];

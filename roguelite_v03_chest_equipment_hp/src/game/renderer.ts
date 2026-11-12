@@ -1153,15 +1153,7 @@ export class GameRenderer {
       ctx.strokeRect(ground.x - barW / 2, headTopY, barW, barH);
     }
 
-    // 4. Hitstun Indicator (Stagger)
-    if (isStunned) {
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('⚡ 硬直', ground.x, headTopY - 7);
-      ctx.restore();
-    } else if (isSuperArmor && isHurt) {
+    if (isSuperArmor && isHurt) {
       // 5. Super Armor Flash when struck
       ctx.save();
       ctx.fillStyle = '#ffe082';

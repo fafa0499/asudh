@@ -9,6 +9,9 @@ interface HUDProps {
   acquiredEquipment: PassiveDefinition[];
   equippedEquipmentIds: string[];
   onToggleEquipment: (id: string) => void;
+  currentDepth?: number;
+  currentWave?: number;
+  totalWaves?: number;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -17,6 +20,9 @@ export const HUD: React.FC<HUDProps> = ({
   acquiredEquipment,
   equippedEquipmentIds,
   onToggleEquipment,
+  currentDepth = 1,
+  currentWave = 1,
+  totalWaves = 1,
 }) => {
   const stats = player.stats;
   const hpPct = Math.max(0, Math.min(100, (stats.hp / stats.maxHp) * 100));
@@ -78,6 +84,9 @@ export const HUD: React.FC<HUDProps> = ({
       <div className="flex justify-between items-start gap-4">
         {/* Left: Player Core Status Gauge (HP, MP, Character Stats) */}
         <div className="pointer-events-auto flex flex-col gap-2 bg-neutral-950/80 backdrop-blur-md border border-neutral-800/80 p-3.5 rounded-xl shadow-2xl max-w-sm w-full">
+          <div className="flex items-center justify-between border-b border-neutral-800/70 pb-2 text-[10px] font-mono-combat tracking-widest text-neutral-400">
+            <span>CHAPTER 1 · ROOM {currentDepth}</span><span>WAVE {currentWave}/{totalWaves}</span>
+          </div>
           {/* HP Bar */}
           <div className="flex flex-col gap-1">
             <div className="flex justify-between text-xs font-mono-combat">

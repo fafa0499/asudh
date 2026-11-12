@@ -42,6 +42,8 @@ export class GameEngine {
 
   // Room & Branching state
   public currentDepth: number = 1;
+  public currentWave: number = 1;
+  public totalWaves: number = 3;
   public currentRoom: RoomInfo;
   public roomLocked: boolean = true;
   public pendingRewards: RewardItem[] | null = null;
@@ -101,7 +103,7 @@ export class GameEngine {
       baseDamage: 24,
       defense: 12,
       dodgeRate: 0.08,
-      attackSpeed: 1.0,
+      attackSpeed: 1.08,
       critRate: 0.15,
       critDamage: 1.75,
       dodgeCooldown: 0.95,
@@ -184,6 +186,10 @@ export class GameEngine {
       const roomHeal = Math.round(this.player.stats.maxHp * 0.15);
       this.player.stats.hp = Math.min(this.player.stats.maxHp, this.player.stats.hp + roomHeal);
     }
+    this.currentWave = 1;
+    this.totalWaves = branch.type === 'boss' ? 1 : (branch.type === 'elite' ? 2 : 3);
+    this.currentRoom.waveIndex = this.currentWave;
+    this.currentRoom.totalWaves = this.totalWaves;
     this.currentRoom.phase = 'initializing';
 
     this.pendingRewards = null;
@@ -252,7 +258,8 @@ export class GameEngine {
   }
 
   private spawnEnemySquad(isElite: boolean) {
-    const count = 3 + Math.floor(this.currentDepth / 2);
+    // Fixed wave count per room; enemy count is randomized within a controlled range.
+    const count = (isElite ? 2 : 2) + Math.floor(Math.random() * (isElite ? 2 : 3));
     let idCounter = 1;
 
     for (let i = 0; i < count; i++) {
@@ -300,8 +307,8 @@ export class GameEngine {
         vx: 0,
         vy: 0,
         radius: 20,
-        hp: Math.round(65 * mult),
-        maxHp: Math.round(65 * mult),
+        hp: Math.round(65 * mult * (1 + (Math.ceil(this.currentDepth / 5) - 1) * 0.28)),
+        maxHp: Math.round(65 * mult * (1 + (Math.ceil(this.currentDepth / 5) - 1) * 0.28)),
         isDead: false,
         facing: 0,
         speed: (130 + Math.random() * 25) * (elite ? 1.25 : 1),
@@ -326,8 +333,8 @@ export class GameEngine {
         vx: 0,
         vy: 0,
         radius: 22,
-        hp: Math.round(52 * mult),
-        maxHp: Math.round(52 * mult),
+        hp: Math.round(52 * mult * (1 + (Math.ceil(this.currentDepth / 5) - 1) * 0.28)),
+        maxHp: Math.round(52 * mult * (1 + (Math.ceil(this.currentDepth / 5) - 1) * 0.28)),
         isDead: false,
         facing: 0,
         speed: 105 * (elite ? 1.2 : 1),
@@ -352,8 +359,8 @@ export class GameEngine {
         vx: 0,
         vy: 0,
         radius: 34,
-        hp: Math.round(220 * mult),
-        maxHp: Math.round(220 * mult),
+        hp: Math.round(220 * mult * (1 + (Math.ceil(this.currentDepth / 5) - 1) * 0.28)),
+        maxHp: Math.round(220 * mult * (1 + (Math.ceil(this.currentDepth / 5) - 1) * 0.28)),
         isDead: false,
         facing: 0,
         speed: 65,
@@ -930,14 +937,25 @@ export class GameEngine {
       if (enemy.attackTimer > 0) enemy.attackTimer -= dt;
 
       if (enemy.type === 'wanderer') {
-        if (dist > enemy.attackRange) {
+        if (dist > enemy.attackRange && !enemy.isTelegraphing) {
           enemy.vx += ((dx / dist) * currentSpeed - enemy.vx) * dt * 5;
           enemy.vy += ((dy / dist) * currentSpeed - enemy.vy) * dt * 5;
-        } else if (enemy.attackTimer <= 0) {
-          enemy.attackTimer = enemy.attackCooldown;
-          soundManager.playAttackSlash(0);
-          if (!p.isDodging && p.invulnerableTimer <= 0) {
-            this.damagePlayer(enemy.damage);
+        } else if (dist <= enemy.attackRange && enemy.attackTimer <= 0 && !enemy.isTelegraphing) {
+          // Quick close-range strike: short, readable wind-up so the player can dodge.
+          enemy.isTelegraphing = true;
+          enemy.windupTimer = 0.28;
+          this.telegraphs.push({ id: `wanderer_hit_${enemy.id}`, x: enemy.x, y: enemy.y, type: 'circle', radius: 48, progress: 0, color: 'rgba(235, 235, 235, 0.65)' });
+        }
+        if (enemy.isTelegraphing) {
+          enemy.windupTimer -= dt;
+          const tg = this.telegraphs.find((t) => t.id === `wanderer_hit_${enemy.id}`);
+          if (tg) tg.progress = 1 - enemy.windupTimer / 0.28;
+          if (enemy.windupTimer <= 0) {
+            enemy.isTelegraphing = false;
+            enemy.attackTimer = enemy.attackCooldown;
+            this.telegraphs = this.telegraphs.filter((t) => t.id !== `wanderer_hit_${enemy.id}`);
+            soundManager.playAttackSlash(0);
+            if (Math.hypot(p.x - enemy.x, p.y - enemy.y) <= enemy.attackRange + p.radius && !p.isDodging && p.invulnerableTimer <= 0) this.damagePlayer(enemy.damage);
           }
         }
       } else if (enemy.type === 'phantom_archer') {
@@ -1349,6 +1367,17 @@ export class GameEngine {
 
     const aliveEnemies = this.enemies.filter((e) => !e.isDead);
     if (aliveEnemies.length === 0) {
+      if (this.currentWave < this.totalWaves) {
+        this.currentWave += 1;
+        this.currentRoom.waveIndex = this.currentWave;
+        this.currentRoom.phase = 'spawning';
+        this.enemies = [];
+        this.spawnEnemySquad(this.currentRoom.type === 'elite' || this.currentRoom.type === 'fountain');
+        this.currentRoom.totalEnemies = this.enemies.length;
+        this.currentRoom.enemiesRemaining = this.enemies.length;
+        this.currentRoom.phase = 'combat';
+        return;
+      }
       this.currentRoom.phase = 'cleared';
       this.currentRoom.isCleared = true;
       this.roomLocked = false;
